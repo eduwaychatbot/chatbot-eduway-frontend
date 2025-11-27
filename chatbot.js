@@ -332,7 +332,7 @@
         const typing = appendBotMessage('typing-indicator');
 
         try {
-            const res = await fetch("https://eduway-chatbot-backend.onrender.com/chat", {
+            const res = await fetch("https://eduwayai.com/chatbot/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -383,3 +383,4 @@
         }
     });
 })();
+
