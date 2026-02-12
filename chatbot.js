@@ -77,7 +77,7 @@
         }
 
         .edw-chat-window-closed {
-            display: flex !important; /* FIX: Keep visible while animating out */
+            display: flex !important; /* Keep visible while animating out */
             animation: edw-slideOut 0.3s ease-in forwards;
             pointer-events: none;
         }
@@ -93,27 +93,24 @@
     `;
     document.head.appendChild(style);
 
-    // --- Helper: Generate Robust Avatar HTML ---
+    // --- Helper: Generate Clean Avatar HTML ---
     const getAvatarHTML = (size) => {
         const sizePx = typeof size === 'number' ? `${size}px` : size;
         
-        // FIX: Removed the robot emoji fallback. It is now just an empty string.
-        const fallbackContent = ``; 
-        
+        // If it looks like a link, try to render. If it fails, onclick removes it.
+        // If it doesn't look like a link, render empty gray circle.
         if (universityIcon.startsWith("http")) {
             return `
-                <div style="width:${sizePx}; height:${sizePx}; min-width:${sizePx}; border-radius:50%; overflow:hidden; background:#f0f0f0; display:flex; align-items:center; justify-content:center; position:relative;">
+                <div style="width:${sizePx}; height:${sizePx}; min-width:${sizePx}; border-radius:50%; overflow:hidden; background:#f0f0f0; display:flex; align-items:center; justify-content:center;">
                     <img src="${universityIcon}" 
                          style="width:100%; height:100%; object-fit:cover; display:block;" 
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" 
-                         alt="Bot">
-                    <div style="display:none; width:100%; height:100%; align-items:center; justify-content:center;">${fallbackContent}</div>
+                         onerror="this.style.display='none'" 
+                         alt=""> 
                 </div>
             `;
         } else {
             return `
                 <div style="width:${sizePx}; height:${sizePx}; min-width:${sizePx}; border-radius:50%; overflow:hidden; background:#f0f0f0; display:flex; align-items:center; justify-content:center;">
-                    ${fallbackContent}
                 </div>
             `;
         }
@@ -244,7 +241,6 @@
     const closeChat = () => {
         chatWindow.classList.replace("edw-chat-window-open", "edw-chat-window-closed");
         setTimeout(() => {
-            // Only hide after the animation duration (300ms) has passed
             if (chatWindow.classList.contains("edw-chat-window-closed")) {
                 chatWindow.style.display = "none";
             }
