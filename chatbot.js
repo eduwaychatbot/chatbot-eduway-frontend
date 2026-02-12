@@ -140,14 +140,30 @@
             <div style="height:1px; background:${dividerColor}; width:100%;"></div>
         </div>
         
-        <div id="edw-chatMessages" style="flex:1; padding:20px 16px 16px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;"></div>
+        <div id="edw-chatMessages" style="flex:1; padding:20px 16px 16px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; margin-top: 0px !important; scrollbar-width: thin; scrollbar-color: #ccc transparent;"></div>
         
         <div style="padding: 0 16px 16px 16px; background: #fff;">
             <div style="height:1px; background:${dividerColor}; margin-bottom: 16px;"></div>
             <div style="display:flex; align-items:center; gap:8px;">
                 <input id="edw-chatInput" type="text" placeholder="Write your message..." style="flex:1; height:48px; padding:10px 16px; border-radius:12px; border: 1.5px solid ${inputBorderColor}; outline:none; font-size:14px; font-family: 'Poppins'; box-sizing: border-box;" />
-                <button id="edw-sendChat" style="width:36px; height:36px; border-radius:50%; background:${primaryColor}; color:white; border:none; display:flex; justify-content:center; align-items:center; cursor:pointer;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2v7z"/></svg>
+                
+                <button id="edw-sendChat" style="
+                    width:36px !important; 
+                    height:36px !important; 
+                    border-radius:50% !important; 
+                    background:${primaryColor} !important; 
+                    color:white !important; 
+                    border:none !important; 
+                    display:flex !important; 
+                    justify-content:center !important; 
+                    align-items:center !important; 
+                    cursor:pointer !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    box-shadow: none !important;
+                    min-width: 36px !important; /* Prevents shrinking */
+                ">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="pointer-events: none;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2v7z"/></svg>
                 </button>
             </div>
         </div>
@@ -260,3 +276,4 @@
 
     appendBotMessage("Hi! How can I help you today?");
 })();
+
