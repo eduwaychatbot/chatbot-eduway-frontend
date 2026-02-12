@@ -77,7 +77,8 @@
         }
 
         .edw-chat-window-closed {
-            animation: edw-slideOut 0.3s ease-out forwards;
+            display: flex !important; /* FIX: Keep visible while animating out */
+            animation: edw-slideOut 0.3s ease-in forwards;
             pointer-events: none;
         }
 
@@ -93,12 +94,11 @@
     document.head.appendChild(style);
 
     // --- Helper: Generate Robust Avatar HTML ---
-    // This creates an image that automatically hides itself and shows an icon if the link is broken
     const getAvatarHTML = (size) => {
         const sizePx = typeof size === 'number' ? `${size}px` : size;
-        const iconSize = parseInt(sizePx) * 0.6; // Scale icon relative to box
         
-        const fallbackContent = `<span style="font-size:${iconSize}px; display:flex;">🤖</span>`;
+        // FIX: Removed the robot emoji fallback. It is now just an empty string.
+        const fallbackContent = ``; 
         
         if (universityIcon.startsWith("http")) {
             return `
@@ -123,8 +123,7 @@
     const launcher = document.createElement("div");
     launcher.id = "edw-launcher";
     
-    // Use the new robust avatar helper for the launcher
-    launcher.innerHTML = getAvatarHTML("100%"); // Fills the 60px container
+    launcher.innerHTML = getAvatarHTML("100%"); 
     
     Object.assign(launcher.style, {
         position: "fixed", bottom: "20px", right: "20px", width: "60px", height: "60px",
@@ -205,21 +204,21 @@
 
     function appendBotMessage(htmlContent, isError = false) {
         const botMsg = document.createElement("div");
-        botMsg.className = "edw-message-animate"; // Add Animation
+        botMsg.className = "edw-message-animate"; 
         Object.assign(botMsg.style, {
             background: isError ? "#D32F2F" : botColor,
             color: isError ? "#fff" : "#000", 
             padding: "15px 14px",
             borderRadius: "12px 12px 12px 0px", 
             maxWidth: "85%",
-            alignSelf: "flex-start", // Left alignment without container
+            alignSelf: "flex-start", 
             wordWrap: "break-word",
             fontFamily: "Poppins",
             fontSize: "14px"
         });
         
         if (htmlContent === 'typing-indicator') {
-             botMsg.className = 'edw-typing-indicator'; // Remove animation class for typing indicator if desired, or keep both
+             botMsg.className = 'edw-typing-indicator'; 
              botMsg.classList.add('edw-message-animate');
              botMsg.innerHTML = `Typing <span></span><span></span><span></span>`;
         } else {
@@ -245,6 +244,7 @@
     const closeChat = () => {
         chatWindow.classList.replace("edw-chat-window-open", "edw-chat-window-closed");
         setTimeout(() => {
+            // Only hide after the animation duration (300ms) has passed
             if (chatWindow.classList.contains("edw-chat-window-closed")) {
                 chatWindow.style.display = "none";
             }
@@ -258,7 +258,7 @@
         isWaitingForResponse = true;
 
         const userMsg = document.createElement("div");
-        userMsg.className = "edw-message-animate"; // Add Animation
+        userMsg.className = "edw-message-animate";
         Object.assign(userMsg.style, {
             alignSelf: "flex-end", background: userColor, color: "#000", 
             padding: "15px 14px", borderRadius: "12px 12px 0px 12px",
