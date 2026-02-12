@@ -1,19 +1,17 @@
 (function() {
-    // --- Existing Configuration ---
+    // --- Configuration ---
     const scriptTag = document.currentScript;
-    let universityName = scriptTag.getAttribute("data-university-name") || "My Bot";
-    // FIX: Retrieve the icon, but handle potential spaces in the URL immediately
+    const universityName = scriptTag.getAttribute("data-university-name") || "My Bot";
+    
+    // IMAGE HANDLING: Retrieve icon and fix spaces in URL
     let rawIcon = scriptTag.getAttribute("data-university-icon") || "default";
-    // Check if it is a link and encode spaces (fixes the "letter e in orange" issue)
     const universityIcon = rawIcon.startsWith("http") ? rawIcon.replace(/ /g, "%20") : rawIcon;
 
     const assistantId = scriptTag.getAttribute("data-assistant-id") || "test-assistant";
-
     const primaryColor = scriptTag.getAttribute("data-primary-color") || "rgb(76,154,227)";
     const userColor = scriptTag.getAttribute("data-user-color") || "rgb(230, 230, 230)"; 
     const botColor = scriptTag.getAttribute("data-bot-color") || "rgb(240, 240, 240)"; 
     
-    // --- New Design Colors ---
     const headerTextColor = "#162149";
     const closeIconColor = "#E9E4FE";
     const dividerColor = "rgba(235, 227, 252, 1)";
@@ -22,15 +20,25 @@
     let isWaitingForResponse = false;
     let threadId = null;
 
-    // --- Import Poppins Font ---
+    // --- Import Fonts ---
     const fontLink = document.createElement('link');
     fontLink.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap';
     fontLink.rel = 'stylesheet';
     document.head.appendChild(fontLink);
 
-    // --- Base Styles (Scoped with edw- prefix) ---
+    // --- Styles ---
     const style = document.createElement('style');
     style.innerHTML = `
+        /* Message Animation: Slide Up + Fade In */
+        @keyframes edw-msg-fade {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .edw-message-animate {
+            animation: edw-msg-fade 0.3s ease-out forwards;
+        }
+
         .edw-typing-indicator {
             display: flex;
             align-items: baseline;
@@ -76,36 +84,55 @@
         #edw-chatInput::placeholder { color: #ccc; }
         #edw-chatInput:focus { border-width: 2px; padding: 9px 15px; }
         
-        /* FIX: Adjusted margins. Removed the padding-top: 0px override so spacing works. */
         #edw-chatMessages {
             margin-top: 0px !important;
-            /* Scrollbar styling for chrome/safari */
             scrollbar-width: thin; 
             scrollbar-color: #ccc transparent;
         }
     `;
     document.head.appendChild(style);
 
+    // --- Helper: Generate Robust Avatar HTML ---
+    // This creates an image that automatically hides itself and shows an icon if the link is broken
+    const getAvatarHTML = (size) => {
+        const sizePx = typeof size === 'number' ? `${size}px` : size;
+        const iconSize = parseInt(sizePx) * 0.6; // Scale icon relative to box
+        
+        const fallbackContent = `<span style="font-size:${iconSize}px; display:flex;">🤖</span>`;
+        
+        if (universityIcon.startsWith("http")) {
+            return `
+                <div style="width:${sizePx}; height:${sizePx}; min-width:${sizePx}; border-radius:50%; overflow:hidden; background:#f0f0f0; display:flex; align-items:center; justify-content:center; position:relative;">
+                    <img src="${universityIcon}" 
+                         style="width:100%; height:100%; object-fit:cover; display:block;" 
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" 
+                         alt="Bot">
+                    <div style="display:none; width:100%; height:100%; align-items:center; justify-content:center;">${fallbackContent}</div>
+                </div>
+            `;
+        } else {
+            return `
+                <div style="width:${sizePx}; height:${sizePx}; min-width:${sizePx}; border-radius:50%; overflow:hidden; background:#f0f0f0; display:flex; align-items:center; justify-content:center;">
+                    ${fallbackContent}
+                </div>
+            `;
+        }
+    };
+
     // --- Chat Bubble (Launcher) ---
     const launcher = document.createElement("div");
     launcher.id = "edw-launcher";
     
-    if (universityIcon.startsWith("http")) {
-        const img = document.createElement("img");
-        img.src = universityIcon;
-        Object.assign(img.style, {
-            width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%"
-        });
-        launcher.appendChild(img);
-    } else {
-        launcher.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15c4.418 0 8-3.134 8-7s-3.582-7-8-7-8 3.134-8 7c0 1.76.743 3.37 1.97 4.6-.097 1.016-.417 2.13-.77 2.9CF.079 16.01 0 16.01 0 16.01s.99.104 1.907-.837C2.932 14.5 4.178 15 5.283 15h2.717zM5 8h1.5v1.5H5V8zm2.5 0h1.5v1.5H7.5V8zm2.5 0h1.5v1.5H10V8z"/></svg>`;
-    }
-
+    // Use the new robust avatar helper for the launcher
+    launcher.innerHTML = getAvatarHTML("100%"); // Fills the 60px container
+    
+    // Note: If using the helper above, we need to clear the padding/border styles of the launcher to make it clean
     Object.assign(launcher.style, {
         position: "fixed", bottom: "20px", right: "20px", width: "60px", height: "60px",
         borderRadius: "50%", background: "#fff", color: "#000", display: "flex",
         justifyContent: "center", alignItems: "center", cursor: "pointer",
-        zIndex: 9999, border: "none", transition: "transform 0.2s" 
+        zIndex: 9999, border: "none", transition: "transform 0.2s",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)" // Added a subtle shadow to launcher
     });
 
     launcher.onmouseenter = () => launcher.style.transform = "scale(1.1)";
@@ -119,7 +146,8 @@
         position: "fixed", bottom: "90px", right: "20px", width: "360px", height: "500px",
         background: "#ffffff", borderRadius: "16px", border: "1px solid #e0e0e0",
         display: "none", flexDirection: "column", overflow: "hidden",
-        fontFamily: "'Poppins', sans-serif", zIndex: 9999
+        fontFamily: "'Poppins', sans-serif", zIndex: 9999,
+        boxShadow: "0 5px 20px rgba(0,0,0,0.1)"
     });
 
     const closeIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1L13 13" stroke="${closeIconColor}" stroke-width="2.5" stroke-linecap="round"/><path d="M13 1L1 13" stroke="${closeIconColor}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
@@ -127,9 +155,8 @@
     chatWindow.innerHTML = `
         <div style="padding:16px 16px 0px 16px; background: #fff; display:flex; flex-direction:column;">
             <div style="display:flex; align-items:center; gap: 12px; padding-bottom:12px;">
-                <div style="width:40px; height:40px; border-radius:50%; overflow:hidden; background:#f0f0f0; display:flex; align-items:center; justify-content:center;">
-                    ${universityIcon.startsWith("http") ? `<img src="${universityIcon}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:20px;">🤖</span>`}
-                </div>
+                ${getAvatarHTML("40px")}
+                
                 <span style="font-weight:bold; color:${headerTextColor}; font-size:16px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                     ${universityName}
                 </span>
@@ -140,13 +167,12 @@
             <div style="height:1px; background:${dividerColor}; width:100%;"></div>
         </div>
         
-        <div id="edw-chatMessages" style="flex:1; padding:20px 16px 16px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; margin-top: 0px !important; scrollbar-width: thin; scrollbar-color: #ccc transparent;"></div>
+        <div id="edw-chatMessages" style="flex:1; padding:20px 16px 16px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;"></div>
         
         <div style="padding: 0 16px 16px 16px; background: #fff;">
             <div style="height:1px; background:${dividerColor}; margin-bottom: 16px;"></div>
             <div style="display:flex; align-items:center; gap:8px;">
                 <input id="edw-chatInput" type="text" placeholder="Write your message..." style="flex:1; height:48px; padding:10px 16px; border-radius:12px; border: 1.5px solid ${inputBorderColor}; outline:none; font-size:14px; font-family: 'Poppins'; box-sizing: border-box;" />
-                
                 <button id="edw-sendChat" style="
                     width:36px !important; 
                     height:36px !important; 
@@ -161,7 +187,7 @@
                     padding: 0 !important;
                     margin: 0 !important;
                     box-shadow: none !important;
-                    min-width: 36px !important; /* Prevents shrinking */
+                    min-width: 36px !important;
                 ">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="pointer-events: none;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2v7z"/></svg>
                 </button>
@@ -179,17 +205,33 @@
     const scrollToBottom = () => { chatMessages.scrollTop = chatMessages.scrollHeight; };
 
     function appendBotMessage(htmlContent, isError = false) {
+        // Container for the whole row (Avatar + Bubble)
+        const container = document.createElement("div");
+        container.className = "edw-message-animate"; // Add Animation
+        Object.assign(container.style, {
+            display: "flex",
+            gap: "8px",
+            alignItems: "flex-end", // Avatar at bottom of message
+            alignSelf: "flex-start",
+            maxWidth: "85%"
+        });
+
+        // 1. The Avatar (Small size for chat)
+        const avatarDiv = document.createElement("div");
+        avatarDiv.innerHTML = getAvatarHTML("28px");
+        container.appendChild(avatarDiv);
+
+        // 2. The Bubble
         const botMsg = document.createElement("div");
         Object.assign(botMsg.style, {
             background: isError ? "#D32F2F" : botColor,
             color: isError ? "#fff" : "#000", 
             padding: "15px 14px",
             borderRadius: "12px 12px 12px 0px", 
-            maxWidth: "85%",
-            alignSelf: "flex-start",
             wordWrap: "break-word",
             fontFamily: "Poppins",
-            fontSize: "14px"
+            fontSize: "14px",
+            flex: "1"
         });
         
         if (htmlContent === 'typing-indicator') {
@@ -199,9 +241,12 @@
              botMsg.innerHTML = htmlContent;
         }
         
-        chatMessages.appendChild(botMsg);
+        container.appendChild(botMsg);
+        chatMessages.appendChild(container);
         scrollToBottom();
-        return botMsg; 
+        
+        // Return the container so we can remove it if needed (for typing indicator)
+        return container; 
     }
 
     // --- Actions ---
@@ -231,6 +276,7 @@
         isWaitingForResponse = true;
 
         const userMsg = document.createElement("div");
+        userMsg.className = "edw-message-animate"; // Add Animation
         Object.assign(userMsg.style, {
             alignSelf: "flex-end", background: userColor, color: "#000", 
             padding: "15px 14px", borderRadius: "12px 12px 0px 12px",
@@ -240,7 +286,7 @@
         chatMessages.appendChild(userMsg);
         scrollToBottom();
 
-        const typing = appendBotMessage('typing-indicator');
+        const typingContainer = appendBotMessage('typing-indicator');
 
         try {
             const res = await fetch("https://eduwayai.com/chatbot/chat", {
@@ -250,10 +296,10 @@
             });
             const data = await res.json();
             threadId = data.threadId;
-            typing.remove();
+            typingContainer.remove(); // Remove the typing bubble container
             appendBotMessage(data.reply);
         } catch (err) {
-            typing.remove();
+            typingContainer.remove();
             appendBotMessage("Connection error. Please try again.", true);
         } finally {
             isWaitingForResponse = false;
@@ -276,4 +322,3 @@
 
     appendBotMessage("Hi! How can I help you today?");
 })();
-
