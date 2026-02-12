@@ -126,13 +126,12 @@
     // Use the new robust avatar helper for the launcher
     launcher.innerHTML = getAvatarHTML("100%"); // Fills the 60px container
     
-    // Note: If using the helper above, we need to clear the padding/border styles of the launcher to make it clean
     Object.assign(launcher.style, {
         position: "fixed", bottom: "20px", right: "20px", width: "60px", height: "60px",
         borderRadius: "50%", background: "#fff", color: "#000", display: "flex",
         justifyContent: "center", alignItems: "center", cursor: "pointer",
         zIndex: 9999, border: "none", transition: "transform 0.2s",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)" // Added a subtle shadow to launcher
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
     });
 
     launcher.onmouseenter = () => launcher.style.transform = "scale(1.1)";
@@ -205,48 +204,31 @@
     const scrollToBottom = () => { chatMessages.scrollTop = chatMessages.scrollHeight; };
 
     function appendBotMessage(htmlContent, isError = false) {
-        // Container for the whole row (Avatar + Bubble)
-        const container = document.createElement("div");
-        container.className = "edw-message-animate"; // Add Animation
-        Object.assign(container.style, {
-            display: "flex",
-            gap: "8px",
-            alignItems: "flex-end", // Avatar at bottom of message
-            alignSelf: "flex-start",
-            maxWidth: "85%"
-        });
-
-        // 1. The Avatar (Small size for chat)
-        const avatarDiv = document.createElement("div");
-        avatarDiv.innerHTML = getAvatarHTML("28px");
-        container.appendChild(avatarDiv);
-
-        // 2. The Bubble
         const botMsg = document.createElement("div");
+        botMsg.className = "edw-message-animate"; // Add Animation
         Object.assign(botMsg.style, {
             background: isError ? "#D32F2F" : botColor,
             color: isError ? "#fff" : "#000", 
             padding: "15px 14px",
             borderRadius: "12px 12px 12px 0px", 
+            maxWidth: "85%",
+            alignSelf: "flex-start", // Left alignment without container
             wordWrap: "break-word",
             fontFamily: "Poppins",
-            fontSize: "14px",
-            flex: "1"
+            fontSize: "14px"
         });
         
         if (htmlContent === 'typing-indicator') {
-             botMsg.className = 'edw-typing-indicator';
+             botMsg.className = 'edw-typing-indicator'; // Remove animation class for typing indicator if desired, or keep both
+             botMsg.classList.add('edw-message-animate');
              botMsg.innerHTML = `Typing <span></span><span></span><span></span>`;
         } else {
              botMsg.innerHTML = htmlContent;
         }
         
-        container.appendChild(botMsg);
-        chatMessages.appendChild(container);
+        chatMessages.appendChild(botMsg);
         scrollToBottom();
-        
-        // Return the container so we can remove it if needed (for typing indicator)
-        return container; 
+        return botMsg; 
     }
 
     // --- Actions ---
@@ -286,7 +268,7 @@
         chatMessages.appendChild(userMsg);
         scrollToBottom();
 
-        const typingContainer = appendBotMessage('typing-indicator');
+        const typingMsg = appendBotMessage('typing-indicator');
 
         try {
             const res = await fetch("https://eduwayai.com/chatbot/chat", {
@@ -296,10 +278,10 @@
             });
             const data = await res.json();
             threadId = data.threadId;
-            typingContainer.remove(); // Remove the typing bubble container
+            typingMsg.remove(); 
             appendBotMessage(data.reply);
         } catch (err) {
-            typingContainer.remove();
+            typingMsg.remove();
             appendBotMessage("Connection error. Please try again.", true);
         } finally {
             isWaitingForResponse = false;
