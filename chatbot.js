@@ -24,183 +24,124 @@
     fontLink.rel = 'stylesheet';
     document.head.appendChild(fontLink);
 
-    // --- Base Styles ---
+    // --- Base Styles (Scoped with edw- prefix) ---
     const style = document.createElement('style');
     style.innerHTML = `
-        .typing-indicator {
+        .edw-typing-indicator {
             display: flex;
             align-items: baseline;
             padding: 15px 14px !important;
         }
-        .typing-indicator span {
+        .edw-typing-indicator span {
             height: 6px;
             width: 6px;
             margin: 0 2px;
             background-color: rgba(0, 0, 0, 0.4);
             border-radius: 50%;
             display: inline-block;
-            animation: bounce 1.4s infinite ease-in-out both;
+            animation: edw-bounce 1.4s infinite ease-in-out both;
         }
-        .typing-indicator span:first-of-type {
-            margin-left: 6px;
-        }
-        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
-        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes bounce {
+        .edw-typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .edw-typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes edw-bounce {
             0%, 80%, 100% { transform: scale(0); }
             40% { transform: scale(1.0); }
         }
-        
-        /* New Chat Input Style */
-        #chatInput::placeholder {
-            color: #ccc;
+
+        @keyframes edw-slideIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        #chatInput:focus {
-            border-width: 2px;
-            padding: 9px 15px; 
+
+        @keyframes edw-slideOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(20px) scale(0.95); }
+        }
+
+        .edw-chat-window-open {
+            display: flex !important;
+            animation: edw-slideIn 0.3s ease-out forwards;
+        }
+
+        .edw-chat-window-closed {
+            animation: edw-slideOut 0.3s ease-out forwards;
+            pointer-events: none;
+        }
+
+        #edw-chatInput::placeholder { color: #ccc; }
+        #edw-chatInput:focus { border-width: 2px; padding: 9px 15px; }
+        
+        /* Fix for the margin gap at the top of messages */
+        #edw-chatMessages {
+            padding-top: 0px !important; 
+            margin-top: 0px !important;
         }
     `;
     document.head.appendChild(style);
 
-    // --- Chat Bubble (Launcher Button) ---
-    const button = document.createElement("div");
-    const botIcon = universityIcon || "🤖";
-
-    if (botIcon.startsWith("http://") || botIcon.startsWith("https://")) {
+    // --- Chat Bubble (Launcher) ---
+    const launcher = document.createElement("div");
+    launcher.id = "edw-launcher";
+    
+    if (universityIcon.startsWith("http")) {
         const img = document.createElement("img");
-        img.src = botIcon;
-        img.style.width = "100%";
-        img.style.height = "100%";
-        img.style.objectFit = "cover";
-        img.style.borderRadius = "50%";
-        button.appendChild(img);
+        img.src = universityIcon;
+        Object.assign(img.style, {
+            width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%"
+        });
+        launcher.appendChild(img);
     } else {
-         button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15c4.418 0 8-3.134 8-7s-3.582-7-8-7-8 3.134-8 7c0 1.76.743 3.37 1.97 4.6-.097 1.016-.417 2.13-.77 2.9CF.079 16.01 0 16.01 0 16.01s.99.104 1.907-.837C2.932 14.5 4.178 15 5.283 15h2.717zM5 8h1.5v1.5H5V8zm2.5 0h1.5v1.5H7.5V8zm2.5 0h1.5v1.5H10V8z"/></svg>`;
+        launcher.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15c4.418 0 8-3.134 8-7s-3.582-7-8-7-8 3.134-8 7c0 1.76.743 3.37 1.97 4.6-.097 1.016-.417 2.13-.77 2.9CF.079 16.01 0 16.01 0 16.01s.99.104 1.907-.837C2.932 14.5 4.178 15 5.283 15h2.717zM5 8h1.5v1.5H5V8zm2.5 0h1.5v1.5H7.5V8zm2.5 0h1.5v1.5H10V8z"/></svg>`;
     }
 
-    Object.assign(button.style, {
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        width: "60px",
-        height: "60px",
-        borderRadius: "50%",
-        background: "#fff",
-        color: "#000",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        cursor: "pointer",
-        boxShadow: "none", // CHANGED: Removed shadow
-        transition: "transform 0.2s", // CHANGED: Removed box-shadow transition
-        zIndex: 9999,
-        border: "1px solid #e0e0e0" // OPTIONAL: Added thin border so button is visible on white backgrounds
+    Object.assign(launcher.style, {
+        position: "fixed", bottom: "20px", right: "20px", width: "60px", height: "60px",
+        borderRadius: "50%", background: "#fff", color: "#000", display: "flex",
+        justifyContent: "center", alignItems: "center", cursor: "pointer",
+        zIndex: 9999, border: "none", transition: "transform 0.2s" 
     });
 
-    button.onmouseenter = () => {
-        button.style.transform = "scale(1.1)";
-        // CHANGED: Removed shadow on hover
-    };
-    button.onmouseleave = () => {
-        button.style.transform = "scale(1)";
-        // CHANGED: Removed shadow on hover leave
-    };
-    document.body.appendChild(button);
+    launcher.onmouseenter = () => launcher.style.transform = "scale(1.1)";
+    launcher.onmouseleave = () => launcher.style.transform = "scale(1)";
+    document.body.appendChild(launcher);
 
     // --- Chat Window ---
     const chatWindow = document.createElement("div");
+    chatWindow.id = "edw-chatWindow";
     Object.assign(chatWindow.style, {
-        position: "fixed",
-        bottom: "90px",
-        right: "20px",
-        width: "360px",
-        height: "500px",
-        background: "#ffffff",
-        borderRadius: "16px",
-        boxShadow: "none", // CHANGED: Removed shadow/glow
-        border: "1px solid #e0e0e0", // OPTIONAL: Added thin border for visibility
-        display: "none",
-        flexDirection: "column",
-        overflow: "hidden",
-        fontFamily: "'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-        zIndex: 9999
+        position: "fixed", bottom: "90px", right: "20px", width: "360px", height: "500px",
+        background: "#ffffff", borderRadius: "16px", border: "1px solid #e0e0e0",
+        display: "none", flexDirection: "column", overflow: "hidden",
+        fontFamily: "'Poppins', sans-serif", zIndex: 9999
     });
 
-    // Helper function to create the header avatar
-    function createHeaderAvatar() {
-        const avatarContainer = document.createElement("div");
-        Object.assign(avatarContainer.style, {
-            width: "56px",
-            height: "56px",
-            minWidth: "56px",
-            borderRadius: "50%",
-            backgroundColor: "#f0f0f0",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            overflow: "hidden"
-        });
-
-        if (universityIcon.startsWith("http")) {
-            const img = document.createElement("img");
-            img.src = universityIcon;
-            img.style.width = "100%";
-            img.style.height = "100%";
-            img.style.objectFit = "cover";
-            avatarContainer.appendChild(img);
-        } else {
-            avatarContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="#999" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4Zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10Z"/></svg>`;
-        }
-        return avatarContainer;
-    }
-
-    // --- Define Close Icon SVG ---
-    const closeIconSvg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M1 1L13 13" stroke="${closeIconColor}" stroke-width="2.5" stroke-linecap="round"/>
-            <path d="M13 1L1 13" stroke="${closeIconColor}" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-    `;
+    const closeIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1L13 13" stroke="${closeIconColor}" stroke-width="2.5" stroke-linecap="round"/><path d="M13 1L1 13" stroke="${closeIconColor}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
 
     chatWindow.innerHTML = `
-        <div style="padding:16px; background: #fff; display:flex; flex-direction:column; gap: 4px;">
-            <div style="display:flex; align-items:center; gap: 12px;">
-                ${createHeaderAvatar().outerHTML}
+        <div style="padding:16px 16px 0px 16px; background: #fff; display:flex; flex-direction:column;">
+            <div style="display:flex; align-items:center; gap: 12px; padding-bottom:12px;">
+                <div style="width:40px; height:40px; border-radius:50%; overflow:hidden; background:#f0f0f0; display:flex; align-items:center; justify-content:center;">
+                    ${universityIcon.startsWith("http") ? `<img src="${universityIcon}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:20px;">🤖</span>`}
+                </div>
                 <span style="font-weight:bold; color:${headerTextColor}; font-size:16px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                     ${universityName}
                 </span>
-
-                <span id="closeChat" style="cursor:pointer; display:flex; align-items:center; justify-content:center; width:24px; height:24px;">
+                <span id="edw-closeChat" style="cursor:pointer; display:flex; align-items:center; justify-content:center; width:24px; height:24px;">
                     ${closeIconSvg}
                 </span>
             </div>
-            <div style="height:1px; background:${dividerColor}; margin-top: 12px;"></div>
+            <div style="height:1px; background:${dividerColor}; width:100%;"></div>
         </div>
         
-        <div id="chatMessages" style="flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
-        </div>
+        <div id="edw-chatMessages" style="flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;"></div>
         
         <div style="padding: 0 16px 16px 16px; background: #fff;">
             <div style="height:1px; background:${dividerColor}; margin-bottom: 16px;"></div>
             <div style="display:flex; align-items:center; gap:8px;">
-                <input id="chatInput" type="text" placeholder="Write your message..." style="flex:1; height:48px; padding:10px 16px; border-radius:12px; border: 1.5px solid ${inputBorderColor}; outline:none; font-size:14px; font-family: 'Poppins'; box-sizing: border-box; transition: all 0.2s;" />
-                <button id="sendChat" style="
-                    width:36px; 
-                    height:36px; 
-                    min-width:36px; 
-                    border-radius:50%; 
-                    background:${primaryColor}; 
-                    color:white; 
-                    border:none; 
-                    display:flex; 
-                    justify-content:center; 
-                    align-items:center; 
-                    cursor:pointer; 
-                    transition: all 0.2s;
-                ">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2v7z"/>
-                    </svg>
+                <input id="edw-chatInput" type="text" placeholder="Write your message..." style="flex:1; height:48px; padding:10px 16px; border-radius:12px; border: 1.5px solid ${inputBorderColor}; outline:none; font-size:14px; font-family: 'Poppins'; box-sizing: border-box;" />
+                <button id="edw-sendChat" style="width:36px; height:36px; border-radius:50%; background:${primaryColor}; color:white; border:none; display:flex; justify-content:center; align-items:center; cursor:pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2v7z"/></svg>
                 </button>
             </div>
         </div>
@@ -208,179 +149,108 @@
 
     document.body.appendChild(chatWindow);
 
-    // --- Re-query Elements ---
-    const chatMessages = chatWindow.querySelector("#chatMessages");
-    const chatInput = chatWindow.querySelector("#chatInput");
-    const sendChat = chatWindow.querySelector("#sendChat");
-    const closeChatBtn = chatWindow.querySelector("#closeChat"); 
+    const chatMessages = chatWindow.querySelector("#edw-chatMessages");
+    const chatInput = chatWindow.querySelector("#edw-chatInput");
+    const sendChat = chatWindow.querySelector("#edw-sendChat");
+    const closeChatBtn = chatWindow.querySelector("#edw-closeChat");
 
-    // --- Chat Logic ---
-    const scrollToBottom = () => {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    };
+    const scrollToBottom = () => { chatMessages.scrollTop = chatMessages.scrollHeight; };
 
-    // Helper to create the small message avatar
-    function createBotAvatar() {
-        const avatar = document.createElement("div");
-        Object.assign(avatar.style, {
-            width: "32px",
-            height: "32px",
-            minWidth: "32px",
-            borderRadius: "50%",
-            backgroundColor: "#f0f0f0",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            overflow: "hidden"
-        });
-
-        if (universityIcon.startsWith("http")) {
-            const img = document.createElement("img");
-            img.src = universityIcon;
-            img.style.width = "100%";
-            img.style.height = "100%";
-            img.style.objectFit = "cover";
-            avatar.appendChild(img);
-        } else {
-            avatar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="${primaryColor}" viewBox="0 0 16 16"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4Zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10Z"/></svg>`;
-        }
-        return avatar;
-    }
-
-    // Helper to append a bot message
     function appendBotMessage(htmlContent, isError = false) {
-        const msgWrapper = document.createElement("div");
-        Object.assign(msgWrapper.style, {
-            display: "flex",
-            alignItems: "flex-end",
-            gap: "9px",
-            alignSelf: "flex-start",
-            fontSize: "14px",
-            fontFamily: "Poppins"
-        });
-
-        msgWrapper.appendChild(createBotAvatar());
-
         const botMsg = document.createElement("div");
         Object.assign(botMsg.style, {
             background: isError ? "#D32F2F" : botColor,
             color: isError ? "#fff" : "#000", 
             padding: "15px 14px",
             borderRadius: "12px 12px 12px 0px", 
-            maxWidth: "80%",
+            maxWidth: "85%",
+            alignSelf: "flex-start",
             wordWrap: "break-word",
             fontFamily: "Poppins",
             fontSize: "14px"
         });
         
-        botMsg.innerHTML = htmlContent;
-        
-        if (htmlContent.includes("typing-indicator")) {
-             botMsg.classList.add('typing-indicator');
+        if (htmlContent === 'typing-indicator') {
+             botMsg.className = 'edw-typing-indicator';
              botMsg.innerHTML = `Typing <span></span><span></span><span></span>`;
+        } else {
+             botMsg.innerHTML = htmlContent;
         }
         
-        msgWrapper.appendChild(botMsg);
-        chatMessages.appendChild(msgWrapper);
+        chatMessages.appendChild(botMsg);
         scrollToBottom();
-        
         return botMsg; 
     }
 
-    // --- Initial Bot Message ---
-    appendBotMessage("Hi! How can I help you today?");
-
-    // --- Event Listeners ---
-    button.onclick = () => {
-        chatWindow.style.display = chatWindow.style.display === "none" ? "flex" : "none";
-        if (chatWindow.style.display === "flex") {
+    // --- Actions ---
+    launcher.onclick = () => {
+        if (chatWindow.classList.contains("edw-chat-window-open")) {
+            closeChat();
+        } else {
+            chatWindow.classList.remove("edw-chat-window-closed");
+            chatWindow.classList.add("edw-chat-window-open");
             chatInput.focus();
         }
     };
-    closeChatBtn.onclick = () => chatWindow.style.display = "none"; 
 
-    const setSendButtonDisabled = (disabled) => {
-        isWaitingForResponse = disabled;
-        sendChat.disabled = disabled;
-        sendChat.style.opacity = disabled ? "0.6" : "1";
-        sendChat.style.cursor = disabled ? "not-allowed" : "pointer";
+    const closeChat = () => {
+        chatWindow.classList.replace("edw-chat-window-open", "edw-chat-window-closed");
+        setTimeout(() => {
+            if (chatWindow.classList.contains("edw-chat-window-closed")) {
+                chatWindow.style.display = "none";
+            }
+        }, 300);
     };
+
+    closeChatBtn.onclick = closeChat;
 
     async function sendMessage(text) {
         if (!text || isWaitingForResponse) return;
+        isWaitingForResponse = true;
 
-        setSendButtonDisabled(true);
-
-        // --- User Message ---
         const userMsg = document.createElement("div");
         Object.assign(userMsg.style, {
-            alignSelf: "flex-end",
-            background: userColor,
-            color: "#000", 
-            padding: "15px 14px", 
-            borderRadius: "12px 12px 0px 12px",
-            maxWidth: "80%",
-            wordWrap: "break-word",
-            fontFamily: "'Poppins', sans-serif",
-            fontSize: "14px"
+            alignSelf: "flex-end", background: userColor, color: "#000", 
+            padding: "15px 14px", borderRadius: "12px 12px 0px 12px",
+            maxWidth: "85%", wordWrap: "break-word", fontSize: "14px"
         });
-        userMsg.innerHTML = `${text}`; 
+        userMsg.innerText = text; 
         chatMessages.appendChild(userMsg);
         scrollToBottom();
 
-        // --- Typing Indicator ---
         const typing = appendBotMessage('typing-indicator');
 
         try {
             const res = await fetch("https://eduwayai.com/chatbot/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "sendMessage",
-                    assistantId: assistantId,
-                    threadId: threadId,
-                    message: text
-                })
+                body: JSON.stringify({ action: "sendMessage", assistantId, threadId, message: text })
             });
-            
-            if (!res.ok) {
-                throw new Error(`Server responded with status: ${res.status}`);
-            }
-
             const data = await res.json();
             threadId = data.threadId;
-
-            typing.parentElement.remove(); 
-
-            // --- Bot Reply ---
+            typing.remove();
             appendBotMessage(data.reply);
-
         } catch (err) {
-            typing.parentElement.remove(); 
-            console.error("Chatbot Error:", err);
-            
-            // --- Error Message ---
-            appendBotMessage("Sorry, I'm having trouble connecting. Please try again in a moment.", true);
-
+            typing.remove();
+            appendBotMessage("Connection error. Please try again.", true);
         } finally {
-            setSendButtonDisabled(false);
+            isWaitingForResponse = false;
             chatInput.focus();
         }
     }
 
-    const handleSend = () => {
+    sendChat.onclick = () => {
         const text = chatInput.value.trim();
-        if (!text || isWaitingForResponse) return;
         chatInput.value = "";
         sendMessage(text);
     };
 
-    sendChat.onclick = handleSend;
-    chatInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
+    chatInput.onkeydown = (e) => {
+        if (e.key === "Enter") {
             e.preventDefault();
-            handleSend();
+            sendChat.click();
         }
-    });
-})();
+    };
 
+    appendBotMessage("Hi! How can I help you today?");
+})();
