@@ -1,8 +1,12 @@
 (function() {
     // --- Existing Configuration ---
     const scriptTag = document.currentScript;
-    const universityName = scriptTag.getAttribute("data-university-name") || "My Bot";
-    const universityIcon = scriptTag.getAttribute("data-university-icon") || "default"; 
+    let universityName = scriptTag.getAttribute("data-university-name") || "My Bot";
+    // FIX: Retrieve the icon, but handle potential spaces in the URL immediately
+    let rawIcon = scriptTag.getAttribute("data-university-icon") || "default";
+    // Check if it is a link and encode spaces (fixes the "letter e in orange" issue)
+    const universityIcon = rawIcon.startsWith("http") ? rawIcon.replace(/ /g, "%20") : rawIcon;
+
     const assistantId = scriptTag.getAttribute("data-assistant-id") || "test-assistant";
 
     const primaryColor = scriptTag.getAttribute("data-primary-color") || "rgb(76,154,227)";
@@ -72,10 +76,12 @@
         #edw-chatInput::placeholder { color: #ccc; }
         #edw-chatInput:focus { border-width: 2px; padding: 9px 15px; }
         
-        /* Fix for the margin gap at the top of messages */
+        /* FIX: Adjusted margins. Removed the padding-top: 0px override so spacing works. */
         #edw-chatMessages {
-            padding-top: 0px !important; 
             margin-top: 0px !important;
+            /* Scrollbar styling for chrome/safari */
+            scrollbar-width: thin; 
+            scrollbar-color: #ccc transparent;
         }
     `;
     document.head.appendChild(style);
@@ -134,7 +140,7 @@
             <div style="height:1px; background:${dividerColor}; width:100%;"></div>
         </div>
         
-        <div id="edw-chatMessages" style="flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;"></div>
+        <div id="edw-chatMessages" style="flex:1; padding:20px 16px 16px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;"></div>
         
         <div style="padding: 0 16px 16px 16px; background: #fff;">
             <div style="height:1px; background:${dividerColor}; margin-bottom: 16px;"></div>
