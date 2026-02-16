@@ -156,7 +156,7 @@
 
         .edw-chat-window-closed {
 
-            display: flex !important; /* Keep visible while animating out */
+            display: flex !important;
 
             animation: edw-slideOut 0.3s ease-in forwards;
 
@@ -180,6 +180,58 @@
 
             scrollbar-color: #ccc transparent;
 
+        }
+
+        /* Bot message HTML content styling */
+        .edw-bot-content p {
+            margin: 0 0 8px 0;
+        }
+        .edw-bot-content p:last-child {
+            margin-bottom: 0;
+        }
+        .edw-bot-content ul,
+        .edw-bot-content ol {
+            margin: 4px 0 8px 0;
+            padding-left: 20px;
+        }
+        .edw-bot-content ul:last-child,
+        .edw-bot-content ol:last-child {
+            margin-bottom: 0;
+        }
+        .edw-bot-content li {
+            margin-bottom: 4px;
+        }
+        .edw-bot-content li:last-child {
+            margin-bottom: 0;
+        }
+        .edw-bot-content strong {
+            font-weight: 600;
+        }
+        .edw-bot-content code {
+            background: rgba(0,0,0,0.06);
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .edw-bot-content pre {
+            background: rgba(0,0,0,0.06);
+            padding: 10px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 4px 0 8px 0;
+        }
+        .edw-bot-content pre code {
+            background: none;
+            padding: 0;
+        }
+        .edw-bot-content h1, .edw-bot-content h2, .edw-bot-content h3 {
+            margin: 0 0 6px 0;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .edw-bot-content a {
+            color: inherit;
+            text-decoration: underline;
         }
 
     `;
@@ -219,7 +271,7 @@
                         object-fit: cover; 
                         border-radius: 50%;
                         background: #fff; 
-                        z-index: 2; /* Ensures image sits on top of icon */
+                        z-index: 2;
                      " 
                      onerror="this.style.display='none'" 
                      alt="Bot Avatar">
@@ -451,7 +503,7 @@
 
         } else {
 
-             botMsg.innerHTML = htmlContent;
+             botMsg.innerHTML = `<div class="edw-bot-content">${htmlContent}</div>`;
 
         }
 
@@ -612,5 +664,3 @@
     appendBotMessage("Hi! How can I help you today?");
 
 })();
-
-
