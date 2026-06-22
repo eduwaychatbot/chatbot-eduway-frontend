@@ -38,6 +38,17 @@
   const botColor =
     scriptTag.getAttribute("data-bot-color") || "rgb(240, 240, 240)";
 
+  // Launcher placement + message text colours + drag toggle. Defaults keep the
+  // historic behaviour (bottom-right, dark text, no drag) for old embeds that
+  // don't send these attributes.
+  const position = scriptTag.getAttribute("data-position") || "right";
+  const draggable =
+    (scriptTag.getAttribute("data-draggable") || "false") === "true";
+  const botTextColor =
+    scriptTag.getAttribute("data-bot-text-color") || "#2C2C2C";
+  const userTextColor =
+    scriptTag.getAttribute("data-user-text-color") || "#2C2C2C";
+
   const headerTextColor = "#162149";
   const closeIconColor = "#E9E4FE";
   const dividerColor = "rgba(235, 227, 252, 1)";
@@ -46,6 +57,11 @@
   let isWaitingForResponse = false;
   let threadId = null;
   let sessionToken = null;
+  // Set true by a real drag so the click that follows pointerup doesn't open chat.
+  let justDragged = false;
+  // While the launcher is lifted/dragging, ignore hover-scale so it doesn't
+  // fight the drag transform.
+  let suppressHover = false;
 
   // --- Import Fonts ---
   const fontLink = document.createElement("link");
@@ -248,8 +264,6 @@
 
   Object.assign(launcher.style, {
     position: "fixed",
-    bottom: "20px",
-    right: "20px",
     width: "60px",
     height: "60px",
     borderRadius: "50%",
@@ -263,10 +277,20 @@
     border: "none",
     transition: "transform 0.2s",
     boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+    userSelect: "none",
+    webkitUserSelect: "none",
   });
 
-  launcher.onmouseenter = () => (launcher.style.transform = "scale(1.1)");
-  launcher.onmouseleave = () => (launcher.style.transform = "scale(1)");
+  launcher.onmouseenter = () => {
+    if (!suppressHover) launcher.style.transform = "scale(1.1)";
+  };
+  launcher.onmouseleave = () => {
+    if (!suppressHover) launcher.style.transform = "scale(1)";
+  };
+  // Stop the browser's native image/element drag (the translucent "ghost" of the
+  // avatar) so our hold-to-drag is the only drag behaviour.
+  launcher.setAttribute("draggable", "false");
+  launcher.addEventListener("dragstart", (e) => e.preventDefault());
   document.body.appendChild(launcher);
 
   // --- Chat Window ---
@@ -274,10 +298,9 @@
   chatWindow.id = "edw-chatWindow";
   Object.assign(chatWindow.style, {
     position: "fixed",
-    bottom: "90px",
-    right: "20px",
     width: "360px",
     height: "500px",
+    maxWidth: "calc(100vw - 40px)",
     background: "#ffffff",
     borderRadius: "16px",
     border: "1px solid #e0e0e0",
@@ -334,6 +357,73 @@
   `;
 
   document.body.appendChild(chatWindow);
+
+  // --- Placement -------------------------------------------------------------
+  // Launcher + window placement. Presets anchor to a bottom corner; the "-up"
+  // variants raise the launcher so it clears an existing corner button. Drag
+  // (below) re-anchors to whichever screen corner the user releases nearest.
+  const MARGIN = 20;
+  const LAUNCHER_SIZE = 60;
+  const GAP = 10;
+  const POS_SIDE = position.indexOf("left") === 0 ? "left" : "right";
+  const POS_RAISED = position.indexOf("-up") !== -1;
+
+  function clearPlacement(el) {
+    el.style.top = "";
+    el.style.bottom = "";
+    el.style.left = "";
+    el.style.right = "";
+  }
+
+  // Place the window adjacent to the launcher, opening away from the anchored
+  // edge, and cap its height to the room between that edge and the opposite
+  // margin so it never runs off-screen (the messages list scrolls inside).
+  function placeWindow(horiz, vert, launcherInset) {
+    clearPlacement(chatWindow);
+    chatWindow.style[horiz] = MARGIN + "px";
+    const offset = launcherInset + LAUNCHER_SIZE + GAP;
+    chatWindow.style[vert] = offset + "px";
+    chatWindow.style.maxHeight = `calc(100vh - ${offset + MARGIN}px)`;
+  }
+
+  // Anchor the launcher (and its window) to a side + edge, `inset` px from that
+  // edge. An inset larger than MARGIN on the bottom edge yields a "raised"
+  // position that clears a button the host site may have in that corner.
+  function applyAnchor(horiz, vert, inset) {
+    clearPlacement(launcher);
+    launcher.style[horiz] = MARGIN + "px";
+    launcher.style[vert] = inset + "px";
+    placeWindow(horiz, vert, inset);
+  }
+
+  // Apply the admin-configured preset (with the optional raise).
+  function applyPreset() {
+    const inset = POS_RAISED ? MARGIN + LAUNCHER_SIZE + GAP : MARGIN;
+    applyAnchor(POS_SIDE, "bottom", inset);
+  }
+
+  // Anchor to a side at an ARBITRARY vertical position (used after a free drag):
+  // the launcher hugs the nearest side at the height it was dropped, and the
+  // window opens toward whichever vertical side has more room.
+  function applyFreeAnchor(horiz, topY) {
+    clearPlacement(launcher);
+    launcher.style[horiz] = MARGIN + "px";
+    launcher.style.top = topY + "px";
+
+    clearPlacement(chatWindow);
+    chatWindow.style[horiz] = MARGIN + "px";
+    if (topY + LAUNCHER_SIZE / 2 < window.innerHeight / 2) {
+      const offset = topY + LAUNCHER_SIZE + GAP; // open downward
+      chatWindow.style.top = offset + "px";
+      chatWindow.style.maxHeight = `calc(100vh - ${offset + MARGIN}px)`;
+    } else {
+      const offset = window.innerHeight - topY + GAP; // open upward
+      chatWindow.style.bottom = offset + "px";
+      chatWindow.style.maxHeight = `calc(100vh - ${offset + MARGIN}px)`;
+    }
+  }
+
+  applyPreset();
 
   const chatMessages = chatWindow.querySelector("#edw-chatMessages");
   const chatInput = chatWindow.querySelector("#edw-chatInput");
@@ -394,7 +484,7 @@
     botMsg.className = "edw-message-animate";
     Object.assign(botMsg.style, {
       background: isError ? "#D32F2F" : botColor,
-      color: isError ? "#fff" : "#000",
+      color: isError ? "#fff" : botTextColor,
       padding: "15px 14px",
       borderRadius: "12px 12px 12px 0px",
       maxWidth: "85%",
@@ -425,6 +515,11 @@
 
   // --- Actions ---
   launcher.onclick = () => {
+    // A drag just ended — swallow this synthetic click so it doesn't open chat.
+    if (justDragged) {
+      justDragged = false;
+      return;
+    }
     if (chatWindow.classList.contains("edw-chat-window-open")) {
       closeChat();
     } else {
@@ -450,6 +545,182 @@
   };
 
   closeChatBtn.onclick = closeChat;
+
+  // --- Drag to reposition (hold-to-lift, animated corner-snap, opt-in) -------
+  // A deliberate gesture picks the launcher up so it never drags by accident:
+  //   • press-and-hold (~400ms), or
+  //   • double-tap then hold (faster, ~140ms on the 2nd press)
+  // lift it (scale + shadow). Moving before the hold completes is treated as a
+  // scroll, not a grab. On release it animates into the nearest corner. A quick
+  // tap (no hold) still opens the chat via launcher.onclick.
+  if (draggable) {
+    const HOLD_MS = 400; // press-and-hold duration to lift
+    const DOUBLE_TAP_MS = 300; // window to recognise the 2nd tap of a double-tap
+    const QUICK_HOLD_MS = 140; // shorter hold after a double-tap
+    const SNAP_MS = 480; // drop animation duration (slower, smoother glide)
+    const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+    const REST_SHADOW = "0 4px 12px rgba(0,0,0,0.15)";
+    const LIFT_SHADOW = "0 12px 26px rgba(0,0,0,0.28)";
+
+    let dragging = false;
+    let holdTimer = null;
+    let offsetX = 0;
+    let offsetY = 0;
+    let startX = 0;
+    let startY = 0;
+    let lastTapUp = 0;
+    // Set while a drop animation is in flight so a new gesture can settle it
+    // immediately (otherwise its delayed finalize re-anchors with stale coords).
+    let pendingFinalize = null;
+
+    launcher.style.cursor = "grab";
+    launcher.style.touchAction = "none";
+
+    const clearHold = () => {
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+    };
+
+    const settle = () => {
+      suppressHover = false;
+      launcher.style.cursor = "grab";
+      launcher.style.transform = "scale(1)";
+      launcher.style.boxShadow = REST_SHADOW;
+    };
+
+    // Hold elapsed → pick the launcher up: switch to absolute left/top at its
+    // current spot (so drag + snap animate cleanly) and show the lifted state.
+    const lift = () => {
+      holdTimer = null;
+      dragging = true;
+      suppressHover = true;
+      const rect = launcher.getBoundingClientRect();
+      clearPlacement(launcher);
+      launcher.style.left = rect.left + "px";
+      launcher.style.top = rect.top + "px";
+      launcher.style.transition = `transform 0.15s ${EASE}, box-shadow 0.15s ${EASE}`;
+      launcher.style.transform = "scale(1.12)";
+      launcher.style.boxShadow = LIFT_SHADOW;
+      launcher.style.cursor = "grabbing";
+      if (chatWindow.classList.contains("edw-chat-window-open")) closeChat();
+    };
+
+    // Snap horizontally to the nearest side, but keep the vertical position
+    // where it was dropped (clamped to the viewport) — so it can rest at ANY
+    // height to clear a host-site button anywhere on that side.
+    const snapToAnchor = () => {
+      const rect = launcher.getBoundingClientRect();
+      const horiz =
+        rect.left + LAUNCHER_SIZE / 2 < window.innerWidth / 2 ? "left" : "right";
+      const targetX =
+        horiz === "left" ? MARGIN : window.innerWidth - MARGIN - LAUNCHER_SIZE;
+      const targetY = Math.max(
+        MARGIN,
+        Math.min(rect.top, window.innerHeight - MARGIN - LAUNCHER_SIZE),
+      );
+
+      launcher.style.transition =
+        `left ${SNAP_MS}ms ${EASE}, top ${SNAP_MS}ms ${EASE}, ` +
+        `transform 0.2s ${EASE}, box-shadow 0.2s ${EASE}`;
+      clearPlacement(launcher);
+      launcher.style.left = targetX + "px";
+      launcher.style.top = targetY + "px";
+      launcher.style.transform = "scale(1)";
+      launcher.style.boxShadow = REST_SHADOW;
+
+      const finalize = () => {
+        if (pendingFinalize !== finalize) return; // already ran or was superseded
+        pendingFinalize = null;
+        clearTimeout(fallback);
+        launcher.removeEventListener("transitionend", onEnd);
+        // Re-anchor to the side at the dropped height (same pixels — no jump).
+        launcher.style.transition = "transform 0.2s";
+        applyFreeAnchor(horiz, targetY);
+        settle();
+      };
+      const onEnd = (ev) => {
+        if (ev.propertyName === "left" || ev.propertyName === "top") finalize();
+      };
+      launcher.addEventListener("transitionend", onEnd);
+      const fallback = setTimeout(finalize, SNAP_MS + 100);
+      pendingFinalize = finalize;
+    };
+
+    launcher.addEventListener("pointerdown", (e) => {
+      // Settle any in-flight drop animation now so its delayed finalize can't
+      // re-anchor with stale coordinates during this new gesture.
+      if (pendingFinalize) pendingFinalize();
+      // Reset any stale suppress-flag so a prior drag can't swallow this tap.
+      justDragged = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      const rect = launcher.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+      try {
+        launcher.setPointerCapture(e.pointerId);
+      } catch (err) {
+        /* ignore */
+      }
+      const quick = Date.now() - lastTapUp < DOUBLE_TAP_MS; // 2nd tap of a double-tap
+      clearHold();
+      holdTimer = setTimeout(lift, quick ? QUICK_HOLD_MS : HOLD_MS);
+    });
+
+    launcher.addEventListener("pointermove", (e) => {
+      if (!dragging) {
+        // Moved before the hold elapsed → scroll/swipe, not a grab. Cancel arming.
+        if (
+          holdTimer &&
+          (Math.abs(e.clientX - startX) > 8 || Math.abs(e.clientY - startY) > 8)
+        ) {
+          clearHold();
+        }
+        return;
+      }
+      launcher.style.transition = "none"; // 1:1 follow while dragging
+      clearPlacement(launcher);
+      const x = Math.max(
+        0,
+        Math.min(e.clientX - offsetX, window.innerWidth - LAUNCHER_SIZE),
+      );
+      const y = Math.max(
+        0,
+        Math.min(e.clientY - offsetY, window.innerHeight - LAUNCHER_SIZE),
+      );
+      launcher.style.left = x + "px";
+      launcher.style.top = y + "px";
+    });
+
+    const endPointer = (e, canceled) => {
+      clearHold();
+      try {
+        launcher.releasePointerCapture(e.pointerId);
+      } catch (err) {
+        /* ignore */
+      }
+      if (dragging) {
+        dragging = false;
+        justDragged = true; // swallow the click that follows a drag
+        if (canceled) {
+          // Interrupted — re-anchor to the configured preset, no animation.
+          launcher.style.transition = "transform 0.2s";
+          applyPreset();
+          settle();
+        } else {
+          snapToAnchor();
+        }
+      } else if (!canceled) {
+        // A tap (no hold) — record it for double-tap detection; onclick opens.
+        lastTapUp = Date.now();
+      }
+    };
+
+    launcher.addEventListener("pointerup", (e) => endPointer(e, false));
+    launcher.addEventListener("pointercancel", (e) => endPointer(e, true));
+  }
 
   // --- Turnstile (invisible bot check) ---
   let turnstileScriptPromise = null;
@@ -612,7 +883,7 @@
   // --- Streaming bot bubble helpers ---
   const botBubbleStyle = {
     background: botColor,
-    color: "#000",
+    color: botTextColor,
     padding: "15px 14px",
     borderRadius: "12px 12px 12px 0px",
     maxWidth: "85%",
@@ -739,7 +1010,7 @@
     Object.assign(userMsg.style, {
       alignSelf: "flex-end",
       background: userColor,
-      color: "#000",
+      color: userTextColor,
       padding: "15px 14px",
       borderRadius: "12px 12px 0px 12px",
       maxWidth: "85%",
