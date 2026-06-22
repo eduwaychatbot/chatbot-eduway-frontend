@@ -279,6 +279,7 @@
     boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
     userSelect: "none",
     webkitUserSelect: "none",
+    WebkitUserSelect: "none", // capital-W form for broader browser compatibility
   });
 
   launcher.onmouseenter = () => {
@@ -412,12 +413,22 @@
 
     clearPlacement(chatWindow);
     chatWindow.style[horiz] = MARGIN + "px";
-    if (topY + LAUNCHER_SIZE / 2 < window.innerHeight / 2) {
-      const offset = topY + LAUNCHER_SIZE + GAP; // open downward
+
+    const launcherTop = topY;
+    const launcherBottom = topY + LAUNCHER_SIZE;
+    if (launcherTop + LAUNCHER_SIZE / 2 < window.innerHeight / 2) {
+      // Open DOWNWARD: window starts a GAP below the launcher's BOTTOM edge, so
+      // the offset includes the launcher's height.
+      const offset = launcherBottom + GAP;
       chatWindow.style.top = offset + "px";
       chatWindow.style.maxHeight = `calc(100vh - ${offset + MARGIN}px)`;
     } else {
-      const offset = window.innerHeight - topY + GAP; // open upward
+      // Open UPWARD: the window's bottom edge sits a GAP above the launcher's TOP
+      // edge. As a CSS `bottom` (measured from the viewport bottom) that's
+      // innerHeight - launcherTop + GAP — the launcher's height is already
+      // accounted for by anchoring to its TOP, so NO LAUNCHER_SIZE term is added
+      // (adding one would push the window down into the launcher).
+      const offset = window.innerHeight - launcherTop + GAP;
       chatWindow.style.bottom = offset + "px";
       chatWindow.style.maxHeight = `calc(100vh - ${offset + MARGIN}px)`;
     }
@@ -630,6 +641,9 @@
       launcher.style.transform = "scale(1)";
       launcher.style.boxShadow = REST_SHADOW;
 
+      // Declared before finalize so the closure never hits the temporal dead
+      // zone if it runs before the assignment line below.
+      let fallback;
       const finalize = () => {
         if (pendingFinalize !== finalize) return; // already ran or was superseded
         pendingFinalize = null;
@@ -644,7 +658,7 @@
         if (ev.propertyName === "left" || ev.propertyName === "top") finalize();
       };
       launcher.addEventListener("transitionend", onEnd);
-      const fallback = setTimeout(finalize, SNAP_MS + 100);
+      fallback = setTimeout(finalize, SNAP_MS + 100);
       pendingFinalize = finalize;
     };
 
