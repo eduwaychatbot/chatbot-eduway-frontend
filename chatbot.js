@@ -289,7 +289,7 @@
     if (!suppressHover) launcher.style.transform = "scale(1)";
   };
   // Stop the browser's native image/element drag (the translucent "ghost" of the
-  // avatar) so our hold-to-drag is the only drag behaviour.
+  // avatar) so our move-to-grab drag is the only drag behaviour.
   launcher.setAttribute("draggable", "false");
   launcher.addEventListener("dragstart", (e) => e.preventDefault());
   document.body.appendChild(launcher);
@@ -557,42 +557,30 @@
 
   closeChatBtn.onclick = closeChat;
 
-  // --- Drag to reposition (hold-to-lift, animated corner-snap, opt-in) -------
-  // A deliberate gesture picks the launcher up so it never drags by accident:
-  //   • press-and-hold (~400ms), or
-  //   • double-tap then hold (faster, ~140ms on the 2nd press)
-  // lift it (scale + shadow). Moving before the hold completes is treated as a
-  // scroll, not a grab. On release it animates into the nearest corner. A quick
-  // tap (no hold) still opens the chat via launcher.onclick.
+  // --- Drag to reposition (move-to-grab, animated corner-snap, opt-in) -------
+  // No hold required: press and move past a small threshold and the launcher
+  // lifts and follows the pointer immediately. On release it animates into the
+  // nearest corner. A plain click (no movement) still opens the chat via
+  // launcher.onclick — a double-click behaves the same, since there's no hold.
   if (draggable) {
-    const HOLD_MS = 400; // press-and-hold duration to lift
-    const DOUBLE_TAP_MS = 300; // window to recognise the 2nd tap of a double-tap
-    const QUICK_HOLD_MS = 140; // shorter hold after a double-tap
+    const DRAG_THRESHOLD = 6; // px of movement before a press becomes a drag
     const SNAP_MS = 480; // drop animation duration (slower, smoother glide)
     const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
     const REST_SHADOW = "0 4px 12px rgba(0,0,0,0.15)";
     const LIFT_SHADOW = "0 12px 26px rgba(0,0,0,0.28)";
 
     let dragging = false;
-    let holdTimer = null;
+    let pointerDown = false;
     let offsetX = 0;
     let offsetY = 0;
     let startX = 0;
     let startY = 0;
-    let lastTapUp = 0;
     // Set while a drop animation is in flight so a new gesture can settle it
     // immediately (otherwise its delayed finalize re-anchors with stale coords).
     let pendingFinalize = null;
 
     launcher.style.cursor = "grab";
     launcher.style.touchAction = "none";
-
-    const clearHold = () => {
-      if (holdTimer) {
-        clearTimeout(holdTimer);
-        holdTimer = null;
-      }
-    };
 
     const settle = () => {
       suppressHover = false;
@@ -601,10 +589,10 @@
       launcher.style.boxShadow = REST_SHADOW;
     };
 
-    // Hold elapsed → pick the launcher up: switch to absolute left/top at its
-    // current spot (so drag + snap animate cleanly) and show the lifted state.
+    // First movement past the threshold → pick the launcher up: switch to
+    // absolute left/top at its current spot (so drag + snap animate cleanly)
+    // and show the lifted state.
     const lift = () => {
-      holdTimer = null;
       dragging = true;
       suppressHover = true;
       const rect = launcher.getBoundingClientRect();
@@ -668,6 +656,7 @@
       if (pendingFinalize) pendingFinalize();
       // Reset any stale suppress-flag so a prior drag can't swallow this tap.
       justDragged = false;
+      pointerDown = true;
       startX = e.clientX;
       startY = e.clientY;
       const rect = launcher.getBoundingClientRect();
@@ -678,21 +667,21 @@
       } catch (err) {
         /* ignore */
       }
-      const quick = Date.now() - lastTapUp < DOUBLE_TAP_MS; // 2nd tap of a double-tap
-      clearHold();
-      holdTimer = setTimeout(lift, quick ? QUICK_HOLD_MS : HOLD_MS);
     });
 
     launcher.addEventListener("pointermove", (e) => {
       if (!dragging) {
-        // Moved before the hold elapsed → scroll/swipe, not a grab. Cancel arming.
+        // Not yet dragging — start the moment the pointer moves past the
+        // threshold while pressed (no hold needed).
         if (
-          holdTimer &&
-          (Math.abs(e.clientX - startX) > 8 || Math.abs(e.clientY - startY) > 8)
+          pointerDown &&
+          (Math.abs(e.clientX - startX) > DRAG_THRESHOLD ||
+            Math.abs(e.clientY - startY) > DRAG_THRESHOLD)
         ) {
-          clearHold();
+          lift();
+        } else {
+          return;
         }
-        return;
       }
       launcher.style.transition = "none"; // 1:1 follow while dragging
       clearPlacement(launcher);
@@ -709,7 +698,7 @@
     });
 
     const endPointer = (e, canceled) => {
-      clearHold();
+      pointerDown = false;
       try {
         launcher.releasePointerCapture(e.pointerId);
       } catch (err) {
@@ -726,10 +715,9 @@
         } else {
           snapToAnchor();
         }
-      } else if (!canceled) {
-        // A tap (no hold) — record it for double-tap detection; onclick opens.
-        lastTapUp = Date.now();
       }
+      // A plain press with no movement falls through: launcher.onclick opens
+      // the chat as usual.
     };
 
     launcher.addEventListener("pointerup", (e) => endPointer(e, false));
