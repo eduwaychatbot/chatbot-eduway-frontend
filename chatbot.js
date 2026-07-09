@@ -1,14 +1,25 @@
 (function () {
+  // --- HTML/attribute escaping ---
+  const escapeHtml = (str) =>
+    String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
   // --- Configuration ---
   const scriptTag = document.currentScript;
-  const universityName =
-    scriptTag.getAttribute("data-university-name") || "My Bot";
+  const universityName = escapeHtml(
+    scriptTag.getAttribute("data-university-name") || "My Bot",
+  );
 
-  // IMAGE HANDLING: Retrieve icon and fix spaces in URL
-  let rawIcon = scriptTag.getAttribute("data-university-icon") || "default";
-  const universityIcon = rawIcon.startsWith("http")
-    ? rawIcon.replace(/ /g, "%20")
-    : rawIcon;
+  // Only accept http(s) icon URLs without quotes, then attribute-escape.
+  const rawIcon = scriptTag.getAttribute("data-university-icon") || "";
+  const universityIcon =
+    /^https?:\/\//i.test(rawIcon) && !/["']/.test(rawIcon)
+      ? escapeHtml(rawIcon.replace(/ /g, "%20"))
+      : "";
 
   const assistantId =
     scriptTag.getAttribute("data-assistant-id") || "test-assistant";
@@ -19,24 +30,21 @@
   // as optional overrides (handy for local testing), but customers never need
   // to include them.
   const DEFAULT_API_URL = "https://eduwayai.com/chatbot"; // production backend (override per-embed with data-api-url)
-  const DEFAULT_TURNSTILE_SITEKEY = "0x4AAAAAADiqq1CFrkqUzzr6";
 
   // Backend base URL (no trailing slash).
   const apiUrl = (
     scriptTag.getAttribute("data-api-url") || DEFAULT_API_URL
   ).replace(/\/+$/, "");
 
-  // Cloudflare Turnstile site key (public). If empty, the bot check is skipped
-  // and the widget just requests a session directly (matches dev mode backend).
-  const turnstileSiteKey =
-    scriptTag.getAttribute("data-turnstile-sitekey") || DEFAULT_TURNSTILE_SITEKEY;
-
-  const primaryColor =
-    scriptTag.getAttribute("data-primary-color") || "rgb(76,154,227)";
-  const userColor =
-    scriptTag.getAttribute("data-user-color") || "rgb(230, 230, 230)";
-  const botColor =
-    scriptTag.getAttribute("data-bot-color") || "rgb(240, 240, 240)";
+  const primaryColor = escapeHtml(
+    scriptTag.getAttribute("data-primary-color") || "rgb(76,154,227)",
+  );
+  const userColor = escapeHtml(
+    scriptTag.getAttribute("data-user-color") || "rgb(230, 230, 230)",
+  );
+  const botColor = escapeHtml(
+    scriptTag.getAttribute("data-bot-color") || "rgb(240, 240, 240)",
+  );
 
   // Launcher placement + message text colours + drag toggle. Defaults keep the
   // historic behaviour (bottom-right, dark text, no drag) for old embeds that
@@ -44,10 +52,12 @@
   const position = scriptTag.getAttribute("data-position") || "right";
   const draggable =
     (scriptTag.getAttribute("data-draggable") || "false") === "true";
-  const botTextColor =
-    scriptTag.getAttribute("data-bot-text-color") || "#2C2C2C";
-  const userTextColor =
-    scriptTag.getAttribute("data-user-text-color") || "#2C2C2C";
+  const botTextColor = escapeHtml(
+    scriptTag.getAttribute("data-bot-text-color") || "#2C2C2C",
+  );
+  const userTextColor = escapeHtml(
+    scriptTag.getAttribute("data-user-text-color") || "#2C2C2C",
+  );
 
   const headerTextColor = "#162149";
   const closeIconColor = "#E9E4FE";
@@ -99,7 +109,7 @@
       }
       .edw-typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
       .edw-typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-      
+
       @keyframes edw-bounce {
           0%, 80%, 100% { transform: scale(0); }
           40% { transform: scale(1.0); }
@@ -128,16 +138,16 @@
 
       #edw-chatInput::placeholder { color: #ccc; }
       #edw-chatInput:focus { border-width: 2px; padding: 9px 15px; }
-      
+
       #edw-chatMessages {
           margin-top: 0px !important;
-          scrollbar-width: thin; 
+          scrollbar-width: thin;
           scrollbar-color: #ccc transparent;
       }
       /* Bot message HTML content styling */
       .edw-bot-content {
           /* NEW: Ensures whitespace is respected if parsing fails */
-          white-space: pre-wrap; 
+          white-space: pre-wrap;
       }
       .edw-bot-content p {
           margin: 0 0 8px 0;
@@ -146,15 +156,13 @@
       .edw-bot-content p:last-child {
           margin-bottom: 0;
       }
-      .edw-bot-content ul,
-      .edw-bot-content ol {
+      .edw-bot-content ul {
           margin: 4px 0 8px 0;
           padding-left: 20px;
           list-style-type: disc; /* Ensure bullets show */
           white-space: normal;
       }
-      .edw-bot-content ul:last-child,
-      .edw-bot-content ol:last-child {
+      .edw-bot-content ul:last-child {
           margin-bottom: 0;
       }
       .edw-bot-content li {
@@ -166,31 +174,19 @@
       .edw-bot-content strong {
           font-weight: 600;
       }
-      .edw-bot-content code {
-          background: rgba(0,0,0,0.06);
-          padding: 1px 4px;
-          border-radius: 4px;
-          font-size: 13px;
-      }
-      .edw-bot-content pre {
-          background: rgba(0,0,0,0.06);
-          padding: 10px;
-          border-radius: 8px;
-          overflow-x: auto;
-          margin: 4px 0 8px 0;
-      }
-      .edw-bot-content pre code {
-          background: none;
-          padding: 0;
-      }
-      .edw-bot-content h1, .edw-bot-content h2, .edw-bot-content h3 {
-          margin: 0 0 6px 0;
-          font-size: 14px;
-          font-weight: 700;
-      }
       .edw-bot-content a {
           color: inherit;
           text-decoration: underline;
+      }
+
+      #edw-launcher:focus-visible {
+          outline: 2px solid ${primaryColor};
+          outline-offset: 2px;
+      }
+      #edw-closeChat:focus-visible {
+          outline: 2px solid ${primaryColor};
+          outline-offset: 2px;
+          border-radius: 4px;
       }
 
       /* Queued-message indicator */
@@ -233,18 +229,18 @@
       primaryColor && primaryColor !== "default" ? primaryColor : "#162149";
 
     const fallbackIcon = `
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" 
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                style="width: 55%; height: 55%; fill: ${iconColor}; display: block; z-index: 1;">
               <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" />
           </svg>
       `;
 
     let imgTag = "";
-    if (universityIcon && universityIcon.startsWith("http")) {
+    if (universityIcon) {
       imgTag = `
-              <img src="${universityIcon}" 
-                   style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; background: #fff; z-index: 2;" 
-                   onerror="this.style.display='none'" 
+              <img src="${universityIcon}"
+                   style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; background: #fff; z-index: 2;"
+                   onerror="this.style.display='none'"
                    alt="Bot Avatar">
           `;
     }
@@ -278,9 +274,12 @@
     transition: "transform 0.2s",
     boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
     userSelect: "none",
-    webkitUserSelect: "none",
-    WebkitUserSelect: "none", // capital-W form for broader browser compatibility
+    WebkitUserSelect: "none",
   });
+
+  launcher.setAttribute("role", "button");
+  launcher.setAttribute("tabindex", "0");
+  launcher.setAttribute("aria-label", "Open chat");
 
   launcher.onmouseenter = () => {
     if (!suppressHover) launcher.style.transform = "scale(1.1)";
@@ -297,6 +296,11 @@
   // --- Chat Window ---
   const chatWindow = document.createElement("div");
   chatWindow.id = "edw-chatWindow";
+  chatWindow.setAttribute("role", "dialog");
+  chatWindow.setAttribute(
+    "aria-label",
+    scriptTag.getAttribute("data-university-name") || "My Bot",
+  );
   Object.assign(chatWindow.style, {
     position: "fixed",
     width: "360px",
@@ -322,29 +326,29 @@
               <span style="font-weight:bold; color:${headerTextColor}; font-size:16px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                   ${universityName}
               </span>
-              <span id="edw-closeChat" style="cursor:pointer; display:flex; align-items:center; justify-content:center; width:24px; height:24px;">
+              <button type="button" id="edw-closeChat" aria-label="Close chat" style="cursor:pointer; display:flex; align-items:center; justify-content:center; width:24px; height:24px; background:none; border:none; padding:0; margin:0; font:inherit; color:inherit;">
                   ${closeIconSvg}
-              </span>
+              </button>
           </div>
           <div style="height:1px; background:${dividerColor}; width:100%;"></div>
       </div>
-      
+
       <div id="edw-chatMessages" style="flex:1; padding:20px 16px 16px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;"></div>
-      
+
       <div style="padding: 0 16px 16px 16px; background: #fff;">
           <div style="height:1px; background:${dividerColor}; margin-bottom: 16px;"></div>
           <div style="display:flex; align-items:center; gap:8px;">
-              <input id="edw-chatInput" type="text" placeholder="Write your message..." style="flex:1; height:48px; padding:10px 16px; border-radius:12px; border: 1.5px solid ${inputBorderColor}; outline:none; font-size:14px; font-family: 'Poppins'; box-sizing: border-box;" />
-              <button id="edw-sendChat" style="
-                  width:36px !important; 
-                  height:36px !important; 
-                  border-radius:50% !important; 
-                  background:${primaryColor} !important; 
-                  color:white !important; 
-                  border:none !important; 
-                  display:flex !important; 
-                  justify-content:center !important; 
-                  align-items:center !important; 
+              <input id="edw-chatInput" type="text" placeholder="Write your message..." aria-label="Type your message" style="flex:1; height:48px; padding:10px 16px; border-radius:12px; border: 1.5px solid ${inputBorderColor}; outline:none; font-size:16px; font-family: 'Poppins'; box-sizing: border-box;" />
+              <button type="button" id="edw-sendChat" aria-label="Send message" style="
+                  width:36px !important;
+                  height:36px !important;
+                  border-radius:50% !important;
+                  background:${primaryColor} !important;
+                  color:white !important;
+                  border:none !important;
+                  display:flex !important;
+                  justify-content:center !important;
+                  align-items:center !important;
                   cursor:pointer !important;
                   padding: 0 !important;
                   margin: 0 !important;
@@ -445,20 +449,23 @@
     chatMessages.scrollTop = chatMessages.scrollHeight;
   };
 
-  // --- NEW FUNCTION: Parse Markdown to HTML ---
+  // Escape HTML first; all later steps only wrap already-safe text in tags.
   function parseMarkdown(text) {
     if (!text) return "";
 
-    // 1. Escape basic HTML (Prevent XSS)
-    let clean = text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+    let clean = escapeHtml(text);
 
     // 2. Bold (**text**)
     clean = clean.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // 3. Process Lines for Lists
+    // 3. Links [text](https://url) — only http(s); unescape &amp; in href
+    clean = clean.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)\s"&]+(?:&amp;[^)\s"]*)*)\)/g,
+      (_, label, url) =>
+        `<a href="${url.replace(/&amp;/g, "&")}" target="_blank" rel="noopener noreferrer">${label}</a>`,
+    );
+
+    // 4. Process lines for lists
     let lines = clean.split("\n");
     let output = "";
     let inList = false;
@@ -490,57 +497,67 @@
     return output;
   }
 
-  function appendBotMessage(htmlContent, isError = false, beforeNode = null) {
+  const botBubbleStyle = {
+    background: botColor,
+    color: botTextColor,
+    padding: "15px 14px",
+    borderRadius: "12px 12px 12px 0px",
+    maxWidth: "85%",
+    alignSelf: "flex-start",
+    wordWrap: "break-word",
+    fontFamily: "Poppins",
+    fontSize: "14px",
+  };
+
+  function appendGreeting(text) {
     const botMsg = document.createElement("div");
     botMsg.className = "edw-message-animate";
-    Object.assign(botMsg.style, {
-      background: isError ? "#D32F2F" : botColor,
-      color: isError ? "#fff" : botTextColor,
-      padding: "15px 14px",
-      borderRadius: "12px 12px 12px 0px",
-      maxWidth: "85%",
-      alignSelf: "flex-start",
-      wordWrap: "break-word",
-      fontFamily: "Poppins",
-      fontSize: "14px",
-    });
-
-    if (htmlContent === "typing-indicator") {
-      botMsg.className = "edw-typing-indicator";
-      botMsg.classList.add("edw-message-animate");
-      botMsg.innerHTML = `Typing <span></span><span></span><span></span>`;
-    } else {
-      // MODIFIED: Use the parseMarkdown function here
-      const parsedContent = isError ? htmlContent : parseMarkdown(htmlContent);
-      botMsg.innerHTML = `<div class="edw-bot-content">${parsedContent}</div>`;
-    }
-
-    if (beforeNode) {
-      chatMessages.insertBefore(botMsg, beforeNode);
-    } else {
-      chatMessages.appendChild(botMsg);
-    }
+    Object.assign(botMsg.style, botBubbleStyle);
+    botMsg.innerHTML = `<div class="edw-bot-content">${parseMarkdown(text)}</div>`;
+    chatMessages.appendChild(botMsg);
     scrollToBottom();
-    return botMsg;
+  }
+
+  function plainTextFromMarkdown(text) {
+    return String(text)
+      .replace(/【[^】]*】/g, "")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^[-*]\s+/gm, "")
+      .trim();
+  }
+
+  const srAnnouncer = document.createElement("div");
+  srAnnouncer.setAttribute("aria-live", "polite");
+  srAnnouncer.setAttribute("aria-atomic", "true");
+  Object.assign(srAnnouncer.style, {
+    position: "absolute",
+    width: "1px",
+    height: "1px",
+    padding: "0",
+    margin: "-1px",
+    overflow: "hidden",
+    clip: "rect(0,0,0,0)",
+    whiteSpace: "nowrap",
+    border: "0",
+  });
+  chatWindow.appendChild(srAnnouncer);
+
+  function announceBotReply(text) {
+    const plain = plainTextFromMarkdown(text);
+    if (!plain) return;
+    srAnnouncer.textContent = "";
+    requestAnimationFrame(() => {
+      srAnnouncer.textContent = plain;
+    });
   }
 
   // --- Actions ---
-  launcher.onclick = () => {
-    // A drag just ended — swallow this synthetic click so it doesn't open chat.
-    if (justDragged) {
-      justDragged = false;
-      return;
-    }
-    if (chatWindow.classList.contains("edw-chat-window-open")) {
-      closeChat();
-    } else {
-      chatWindow.classList.remove("edw-chat-window-closed");
-      chatWindow.classList.add("edw-chat-window-open");
-      chatInput.focus();
-      // Pre-warm the session (runs the bot check now) so the first message
-      // sends instantly instead of waiting on verification.
-      ensureSession();
-    }
+  const openChat = () => {
+    chatWindow.classList.remove("edw-chat-window-closed");
+    chatWindow.classList.add("edw-chat-window-open");
+    chatInput.focus();
+    ensureSession();
   };
 
   const closeChat = () => {
@@ -551,11 +568,49 @@
     setTimeout(() => {
       if (chatWindow.classList.contains("edw-chat-window-closed")) {
         chatWindow.style.display = "none";
+        launcher.focus();
       }
     }, 300);
   };
 
+  const toggleChat = () => {
+    if (chatWindow.classList.contains("edw-chat-window-open")) {
+      closeChat();
+    } else {
+      openChat();
+    }
+  };
+
+  launcher.onclick = () => {
+    // A drag just ended — swallow this synthetic click so it doesn't open chat.
+    if (justDragged) {
+      justDragged = false;
+      return;
+    }
+    toggleChat();
+  };
+
+  launcher.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    if (justDragged) {
+      justDragged = false;
+      return;
+    }
+    toggleChat();
+  });
+
   closeChatBtn.onclick = closeChat;
+
+  document.addEventListener("keydown", (e) => {
+    if (
+      e.key === "Escape" &&
+      chatWindow.classList.contains("edw-chat-window-open")
+    ) {
+      e.preventDefault();
+      closeChat();
+    }
+  });
 
   // --- Drag to reposition (move-to-grab, animated corner-snap, opt-in) -------
   // No hold required: press and move past a small threshold and the launcher
@@ -724,147 +779,20 @@
     launcher.addEventListener("pointercancel", (e) => endPointer(e, true));
   }
 
-  // --- Turnstile (invisible bot check) ---
-  let turnstileScriptPromise = null;
-  let turnstileWidgetId = null;
-  let turnstileContainer = null;
-
-  function loadTurnstileScript() {
-    if (!turnstileSiteKey) return Promise.resolve(false);
-    if (turnstileScriptPromise) return turnstileScriptPromise;
-
-    turnstileScriptPromise = new Promise((resolve) => {
-      if (window.turnstile) return resolve(true);
-      const s = document.createElement("script");
-      s.src =
-        "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      s.async = true;
-      s.defer = true;
-      s.onload = () => resolve(true);
-      s.onerror = () => resolve(false);
-      document.head.appendChild(s);
-    });
-    return turnstileScriptPromise;
-  }
-
-  // Shared resolver so Turnstile's render-time callbacks always settle the
-  // currently pending getTurnstileToken() promise (render binds the callback
-  // once, but reset() re-fires it on later refreshes).
-  let turnstileResolve = null;
-  function settleTurnstile(value) {
-    if (turnstileResolve) {
-      const resolve = turnstileResolve;
-      turnstileResolve = null;
-      resolve(value);
-    }
-  }
-
-  // Lock/unlock the composer. Used to block sending while an interactive
-  // Turnstile challenge is on screen and unsolved.
-  function setComposerEnabled(enabled) {
-    chatInput.disabled = !enabled;
-    sendChat.disabled = !enabled;
-    sendChat.style.opacity = enabled ? "1" : "0.5";
-    sendChat.style.cursor = enabled ? "pointer" : "not-allowed";
-    chatInput.placeholder = enabled
-      ? "Write your message..."
-      : "Verify to continue…";
-  }
-
-  // Tear the widget down so it disappears from the chat after it's done (a fresh
-  // one is rendered next time a token is needed).
-  function cleanupTurnstile() {
-    try {
-      if (turnstileWidgetId !== null && window.turnstile) {
-        window.turnstile.remove(turnstileWidgetId);
-      }
-    } catch {
-      /* ignore */
-    }
-    turnstileWidgetId = null;
-    if (turnstileContainer) {
-      turnstileContainer.remove();
-      turnstileContainer = null;
-    }
-  }
-
-  // Resolve to a one-time Turnstile token, or null if Turnstile is unavailable.
-  async function getTurnstileToken() {
-    if (!turnstileSiteKey) return null;
-    const ok = await loadTurnstileScript();
-    if (!ok || !window.turnstile) return null;
-
-    if (!turnstileContainer) {
-      turnstileContainer = document.createElement("div");
-      // Rendered inside the chat window so that IF a challenge is shown (only
-      // for suspicious visitors), it appears in the conversation flow. In the
-      // normal "interaction-only" case it stays collapsed and takes no space.
-      Object.assign(turnstileContainer.style, {
-        display: "flex",
-        justifyContent: "center",
-        margin: "4px 0",
-      });
-      chatMessages.appendChild(turnstileContainer);
-    }
-    scrollToBottom();
-
-    return new Promise((resolve) => {
-      turnstileResolve = resolve;
-      // Safety net: never hang the chat if Turnstile goes silent.
-      setTimeout(() => {
-        setComposerEnabled(true);
-        settleTurnstile(null);
-      }, 15000);
-      try {
-        turnstileWidgetId = window.turnstile.render(turnstileContainer, {
-          sitekey: turnstileSiteKey,
-          appearance: "interaction-only",
-          // Lock the composer only when an interactive challenge actually shows.
-          "before-interactive-callback": () => setComposerEnabled(false),
-          callback: (token) => {
-            setComposerEnabled(true);
-            settleTurnstile(token);
-          },
-          "error-callback": () => {
-            setComposerEnabled(true);
-            settleTurnstile(null);
-          },
-          "timeout-callback": () => {
-            setComposerEnabled(true);
-            settleTurnstile(null);
-          },
-        });
-      } catch {
-        setComposerEnabled(true);
-        settleTurnstile(null);
-      }
-    }).then((token) => {
-      // On success, let the "Success ✓" state stay visible briefly, then remove
-      // it. On failure, remove immediately.
-      if (token) {
-        setTimeout(cleanupTurnstile, 1500);
-      } else {
-        cleanupTurnstile();
-      }
-      return token;
-    });
-  }
-
   // Obtain (or refresh) a backend session token. Returns true on success.
   // De-duplicated: concurrent calls (e.g. pre-warm on open + first send) share
-  // one in-flight request so we never run two Turnstile challenges at once.
+  // one in-flight request.
   let sessionPromise = null;
   async function ensureSession() {
     if (sessionToken) return true;
     if (sessionPromise) return sessionPromise;
 
     sessionPromise = (async () => {
-      const turnstileToken = await getTurnstileToken();
       try {
         const res = await fetch(`${apiUrl}/session`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assistantId, turnstileToken }),
+          body: JSON.stringify({ assistantId }),
         });
         const data = await res.json().catch(() => null);
         if (!res.ok || !data || !data.sessionToken) {
@@ -883,22 +811,11 @@
   }
 
   // --- Streaming bot bubble helpers ---
-  const botBubbleStyle = {
-    background: botColor,
-    color: botTextColor,
-    padding: "15px 14px",
-    borderRadius: "12px 12px 12px 0px",
-    maxWidth: "85%",
-    alignSelf: "flex-start",
-    wordWrap: "break-word",
-    fontFamily: "Poppins",
-    fontSize: "14px",
-  };
-
   function createStreamingBubble() {
     const el = document.createElement("div");
     Object.assign(el.style, botBubbleStyle);
     el.className = "edw-typing-indicator edw-message-animate";
+    el.setAttribute("aria-live", "off");
     el.innerHTML = `Thinking <span></span><span></span><span></span>`;
     chatMessages.appendChild(el);
     scrollToBottom();
@@ -914,16 +831,21 @@
   }
 
   // Switch the bubble to rendered message content (or an error).
-  function setBubbleContent(el, text, isError) {
+  function setBubbleContent(el, text, isError, silent = false) {
     el.className = "edw-message-animate";
     Object.assign(el.style, botBubbleStyle);
     if (isError) {
       el.style.background = "#D32F2F";
       el.style.color = "#fff";
-      el.innerHTML = `<div class="edw-bot-content">${text}</div>`;
+      el.innerHTML = `<div class="edw-bot-content">${escapeHtml(text)}</div>`;
     } else {
       const cleaned = text.replace(/【[^】]*】/g, ""); // strip citation markers
       el.innerHTML = `<div class="edw-bot-content">${parseMarkdown(cleaned)}</div>`;
+    }
+    if (silent) {
+      el.setAttribute("aria-live", "off");
+    } else {
+      el.removeAttribute("aria-live");
     }
     scrollToBottom();
   }
@@ -1080,27 +1002,32 @@
         onDelta: (text) => {
           started = true;
           accumulated += text;
-          setBubbleContent(bubble, accumulated, false);
+          setBubbleContent(bubble, accumulated, false, true);
         },
         onError: (msg) => {
           errored = true;
-          setBubbleContent(
-            bubble,
-            msg || "Something went wrong. Please try again.",
-            true
-          );
+          const errorText = msg || "Something went wrong. Please try again.";
+          setBubbleContent(bubble, errorText, true);
+          announceBotReply(errorText);
         },
       });
 
       if (!started && !errored) {
-        setBubbleContent(bubble, "No response received. Please try again.", true);
+        const errorText = "No response received. Please try again.";
+        setBubbleContent(bubble, errorText, true);
+        announceBotReply(errorText);
       }
     } catch (err) {
       if (!started) {
-        setBubbleContent(bubble, "Connection error. Please try again.", true);
+        const errorText = "Connection error. Please try again.";
+        setBubbleContent(bubble, errorText, true);
+        announceBotReply(errorText);
       }
     } finally {
       isWaitingForResponse = false;
+      if (started && !errored && accumulated) {
+        announceBotReply(accumulated);
+      }
       chatInput.focus();
       // Send the next queued message, if any.
       if (messageQueue.length > 0) {
@@ -1126,5 +1053,5 @@
     }
   };
 
-  appendBotMessage("Hi! How can I help you today?");
+  appendGreeting("Hi! How can I help you today?");
 })();
